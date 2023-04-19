@@ -14,6 +14,7 @@ class C(BaseConstants):
     PLAYERS_PER_GROUP = None
     NUM_ROUNDS = 1
     ITEMS_PER_PLAYER = 5
+    DISCARD_OFFER_VAL = -1
     PERIOD_DURATION = 150
     PERIOD_DURATION1 = 210
     # todo add borders of prices
@@ -49,7 +50,7 @@ class InitPage(WaitPage):
         for p in group.get_players():
             p.is_buyer = (p.id_in_group + group.round_number) % 2 == 0
             p.num_items = 0 if p.is_buyer else C.ITEMS_PER_PLAYER
-            p.current_offer = 0 if p.is_buyer else 200  # todo
+            p.current_offer = C.DISCARD_OFFER_VAL
             p.round_payoff = 0
             break_even_points = [random.uniform(1, 100) for _ in range(C.ITEMS_PER_PLAYER)]  #todo borders
             break_even_points.sort(reverse=p.is_buyer)
@@ -69,9 +70,10 @@ def insert_bid(bids, buyers, offer, player_id):
         del bids[index_for_deletion]
     except ValueError:
         pass
-    index_for_insertion = bisect.bisect_left(bids, offer)
-    bids.insert(index_for_insertion, offer)
-    buyers.insert(index_for_insertion, player_id)
+    if offer != C.DISCARD_OFFER_VAL:
+        index_for_insertion = bisect.bisect_left(bids, offer)
+        bids.insert(index_for_insertion, offer)
+        buyers.insert(index_for_insertion, player_id)
 
 
 def insert_ask(asks, sellers, offer, player_id):
@@ -81,9 +83,10 @@ def insert_ask(asks, sellers, offer, player_id):
         del asks[index_for_deletion]
     except ValueError:
         pass
-    index_for_insertion = bisect.bisect_right(asks, offer)
-    asks.insert(index_for_insertion, offer)
-    sellers.insert(index_for_insertion, player_id)
+    if offer != C.DISCARD_OFFER_VAL:
+        index_for_insertion = bisect.bisect_right(asks, offer)
+        asks.insert(index_for_insertion, offer)
+        sellers.insert(index_for_insertion, player_id)
 
 
 class GamePage(Page):
@@ -94,14 +97,15 @@ class GamePage(Page):
 
     @staticmethod
     def js_vars(player: Player):
-        return dict(is_buyer=player.is_buyer, buyer_num=C.ITEMS_PER_PLAYER)
+        return dict(is_buyer=player.is_buyer,
+                    buyer_num=C.ITEMS_PER_PLAYER,
+                    discard_offer_val=C.DISCARD_OFFER_VAL)
 
     @staticmethod
     def get_timeout_seconds(player: Player):
         return player.group.end_timestamp - time.time()
 
     # todo
-    # todo discard offer
     @staticmethod
     def live_method(player: Player, data):
         offer = float(data['offer'])

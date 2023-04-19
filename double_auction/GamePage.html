@@ -16,16 +16,16 @@
     {{ endif }}<br><br>
 
     Ваши внутренние стоимости равны <b id="break_even_points">{{ player.break_even_points }}</b><br>
-    У вас сейчас <b id="num_items"> {{ player.num_items }} </b> из 5 товаров<br>
+    У вас сейчас <b id="num_items"> {{ player.num_items }} </b> из {{ C.ITEMS_PER_PLAYER }} товаров<br>
+    Текущий выигрыш: <b id="current_payoff">0</b><br>
+    Цена последней сделки на рынке <b id="last_deal"></b><br><br>
 
-
-    Текущий выигрыш: <b id="current_payoff">0</b><br><br>
-    Текущая заявка: <b id="current_offer"></b><br><br>
+    Текущая заявка: <b id="current_offer"></b><br>
+    <button type="button" id="discard_offer_button" onclick="discardOffer()" disabled="disabled">Отменить заявку</button><br><br>
 
     <input id="offer_input" type="number">
     <button type="button" id="offer_button" onclick="sendOffer()">Выставить заявку</button><br>
 
-    <br><br>Последняя заявка<br><br>
 
     <br>Заявки<br>
     <div class="row">
@@ -47,14 +47,20 @@
 
     let offer_input_element = document.getElementById('offer_input');
     let offer_button_element = document.getElementById('offer_button');
+    let discard_offer_button_element = document.getElementById('discard_offer_button');
     let bids_table = document.getElementById('bids_table');
     let asks_table = document.getElementById('asks_table');
 
     let is_buyer = js_vars.is_buyer;
     let buyer_num = js_vars.buyer_num;
+    let discard_offer_val = js_vars.discard_offer_val;
 
     function sendOffer() {
         liveSend({'offer': parseFloat(offer_input_element.value)});
+    }
+
+    function discardOffer() {
+        liveSend({'offer': discard_offer_val});
     }
 
     offer_input_element.addEventListener("keydown", function (event) {
@@ -67,15 +73,19 @@
     function liveRecv(data) {
         let {bids, asks, num_items, current_offer, current_payoff, break_even_points} = data;
         num_items_element.innerText = num_items;
-        current_offer_element.innerText = current_offer;
         current_payoff_element.innerText = current_payoff;
         break_even_points_element.innerText = break_even_points;
 
-        if (!is_buyer && num_items === 0) {
+        if (!is_buyer && num_items === 0 || is_buyer && num_items === buyer_num) {
             offer_button_element.disabled = true;
         }
-        if (is_buyer && num_items === buyer_num) {
-            offer_button_element.disabled = true;
+
+        if (current_offer === discard_offer_val) {
+            discard_offer_button_element.disabled = true;
+            current_offer_element.innerText = '';
+        } else {
+            discard_offer_button_element.disabled = false;
+            current_offer_element.innerText = current_offer;
         }
 
         bids_table.innerHTML = bids.map(e => `${e}<br>`).join('');
