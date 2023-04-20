@@ -48,6 +48,7 @@
     let offer_input_element = document.getElementById('offer_input');
     let offer_button_element = document.getElementById('offer_button');
     let discard_offer_button_element = document.getElementById('discard_offer_button');
+    let last_deal_element = document.getElementById('last_deal');
     let bids_table = document.getElementById('bids_table');
     let asks_table = document.getElementById('asks_table');
 
@@ -71,7 +72,7 @@
 
 
     function liveRecv(data) {
-        let {bids, asks, num_items, current_offer, current_payoff, break_even_points} = data;
+        let {bids, asks, num_items, current_offer, current_payoff, break_even_points, last_deal} = data;
         num_items_element.innerText = num_items;
         current_payoff_element.innerText = current_payoff;
         break_even_points_element.innerText = break_even_points;
@@ -86,6 +87,10 @@
         } else {
             discard_offer_button_element.disabled = false;
             current_offer_element.innerText = current_offer;
+        }
+
+        if (last_deal != discard_offer_val) {
+            last_deal_element.innerText = last_deal;
         }
 
         bids_table.innerHTML = bids.map(e => `${e}<br>`).join('');

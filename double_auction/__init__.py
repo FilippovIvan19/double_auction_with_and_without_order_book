@@ -32,9 +32,17 @@ class Group(BaseGroup):
 class Player(BasePlayer):
     break_even_points = models.StringField()
     num_items = models.IntegerField()
-    round_payoff = models.IntegerField()
+    round_payoff = models.FloatField()
     is_buyer = models.BooleanField()
     current_offer = models.FloatField()
+
+
+def str_to_float_arr(s: str):
+    return list(map(float, s.split(', ')))
+
+
+def float_arr_to_str(arr: list[float]):
+    return ', '.join([f'{el:.2f}' for el in arr])
 
 
 # PAGES
@@ -54,16 +62,20 @@ class InitPage(WaitPage):
             p.round_payoff = 0
             break_even_points = [random.uniform(1, 100) for _ in range(C.ITEMS_PER_PLAYER)]  #todo borders
             break_even_points.sort(reverse=p.is_buyer)
-            break_even_points = [f'{price:.2f}' for price in break_even_points]
-            p.break_even_points = ', '.join(break_even_points)
+            p.break_even_points = float_arr_to_str(break_even_points)
 
 
-# todo
-def find_match():
-    pass
+def find_match(bids: list[float], asks: list[float],
+               buyers: list[int], sellers: list[int]):
+    if len(bids) > 0 and len(asks) > 0 and bids[-1] >= asks[0]:
+        price = (bids.pop(-1) + asks.pop(0)) / 2.
+        buyer, seller = buyers.pop(-1), sellers.pop(0)
+        return price, buyer, seller
+    else:
+        return None
 
 
-def insert_bid(bids, buyers, offer, player_id):
+def insert_bid(bids: list[float], buyers: list[int], offer: float, player_id: int):
     try:
         index_for_deletion = buyers.index(player_id)
         del buyers[index_for_deletion]
@@ -76,7 +88,7 @@ def insert_bid(bids, buyers, offer, player_id):
         buyers.insert(index_for_insertion, player_id)
 
 
-def insert_ask(asks, sellers, offer, player_id):
+def insert_ask(asks: list[float], sellers: list[int], offer: float, player_id: int):
     try:
         index_for_deletion = sellers.index(player_id)
         del sellers[index_for_deletion]
@@ -94,6 +106,7 @@ class GamePage(Page):
     asks = []  # sell offers, highest in the end of list, first element dealt first
     buyers = []  # player_ids of offer owners
     sellers = []
+    last_deal = C.DISCARD_OFFER_VAL
 
     @staticmethod
     def js_vars(player: Player):
@@ -105,7 +118,6 @@ class GamePage(Page):
     def get_timeout_seconds(player: Player):
         return player.group.end_timestamp - time.time()
 
-    # todo
     @staticmethod
     def live_method(player: Player, data):
         offer = float(data['offer'])
@@ -115,15 +127,37 @@ class GamePage(Page):
         else:
             insert_ask(GamePage.asks, GamePage.sellers, offer, player.id_in_group)
 
+        if offer != C.DISCARD_OFFER_VAL:
+            match = find_match(GamePage.bids, GamePage.asks,
+                               GamePage.buyers, GamePage.sellers)
+            if match:
+                price, buyer_id, seller_id = match
+                GamePage.last_deal = price
+                buyer: Player = player.group.get_player_by_id(buyer_id)
+                seller: Player = player.group.get_player_by_id(seller_id)
+
+                buyer_break_even_points = str_to_float_arr(buyer.break_even_points)
+                buyer.round_payoff += buyer_break_even_points.pop(0) - price
+                buyer.break_even_points = float_arr_to_str(buyer_break_even_points)
+                buyer.num_items += 1
+                buyer.current_offer = C.DISCARD_OFFER_VAL
+
+                seller_break_even_points = str_to_float_arr(seller.break_even_points)
+                seller.round_payoff += price - seller_break_even_points.pop(0)
+                seller.break_even_points = float_arr_to_str(seller_break_even_points)
+                seller.num_items -= 1
+                seller.current_offer = C.DISCARD_OFFER_VAL
+
         players = player.group.get_players()
         return {
             p.id_in_group: dict(
                 num_items=p.num_items,
                 current_offer=p.current_offer,
-                current_payoff=p.round_payoff,
+                current_payoff=f'{p.round_payoff:.2f}',
                 break_even_points=p.break_even_points,
                 bids=GamePage.bids[::-1],
                 asks=GamePage.asks,
+                last_deal=f'{GamePage.last_deal:.2f}',
             )
             for p in players
         }
