@@ -27,17 +27,19 @@
     <button type="button" id="offer_button" onclick="sendOffer()">Выставить заявку</button><br>
 
 
-    <br>Заявки<br>
-    <div class="row">
-        <div class="column" style="width: 6em;">
-            <h6>Покупка</h6>
-            <div id="bids_table"></div>
+    {{ if to_display_order_book }}
+        <br>Заявки<br>
+        <div class="row">
+            <div class="column" style="width: 6em;">
+                <h6>Покупка</h6>
+                <div id="bids_table"></div>
+            </div>
+            <div class="column" style="width: 6em;">
+                <h6>Продажа</h6>
+                <div id="asks_table"></div>
+            </div>
         </div>
-        <div class="column" style="width: 6em;">
-            <h6>Продажа</h6>
-            <div id="asks_table"></div>
-        </div>
-    </div>
+    {{ endif }}
 
 <script>
     let current_offer_element = document.getElementById('current_offer');

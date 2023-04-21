@@ -144,6 +144,11 @@ class GamePage(Page):
                     discard_offer_val=C.DISCARD_OFFER_VAL)
 
     @staticmethod
+    def vars_for_template(player):
+        to_display_order_book = 2 * player.round_number <= C.NUM_ROUNDS
+        return dict(to_display_order_book=to_display_order_book)
+
+    @staticmethod
     def get_timeout_seconds(player: Player):
         return player.group.end_timestamp - time.time()
 
@@ -240,4 +245,3 @@ class Results(Page):
 
 page_sequence = [Registration, Instructions, InitPage, GamePage, ResultsWaitPage, Results]
 # todo add custom export
-# todo show order book only for first half
