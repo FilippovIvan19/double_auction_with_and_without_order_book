@@ -2,7 +2,7 @@ import bisect
 import random
 import time
 from otree.api import *
-
+from otree.models import Participant
 
 doc = """
 Your app description
@@ -48,6 +48,7 @@ class Player(BasePlayer):
     round_payoff = models.FloatField()
     is_buyer = models.BooleanField()
     current_offer = models.FloatField()
+    full_name = models.StringField()
 
 
 def str_to_float_arr(s: str):
@@ -72,9 +73,14 @@ def get_break_even_points(is_buyer, round_number):
 class InitPage(WaitPage):
     @staticmethod
     def after_all_players_arrive(group: Group):
+        GamePage.bids, GamePage.asks, GamePage.buyers, GamePage.sellers = [], [], [], []
+        GamePage.last_deal = C.DISCARD_OFFER_VAL
+
         group.start_timestamp = int(time.time())
         if group.round_number == 1:
             group.end_timestamp = group.start_timestamp + C.PERIOD_DURATION1
+            for p in group.get_players():
+                p.participant.full_name = p.full_name
         else:
             group.end_timestamp = group.start_timestamp + C.PERIOD_DURATION
 
@@ -186,8 +192,10 @@ class GamePage(Page):
         }
 
 
-# todo
 class Registration(Page):
+    form_model = 'player'
+    form_fields = ['full_name']
+
     @staticmethod
     def is_displayed(player: Player):
         return player.round_number == 1
@@ -199,21 +207,37 @@ class Instructions(Page):
         return player.round_number == 1
 
 
-# todo compute results
 class ResultsWaitPage(WaitPage):
     @staticmethod
     def is_displayed(player: Player):
         return player.round_number == C.NUM_ROUNDS
 
+    @staticmethod
+    def after_all_players_arrive(group: Group):
+        for p in group.get_players():
+            # a: Participant = p.participant
+            # a.id_in_session
+            p.participant.result_payoff = sum(pr.round_payoff for pr in p.in_all_rounds())
 
-# todo
+
+def get_participant_info(p: Participant):
+    return f'<tr><td>{p.id_in_session}</td>' \
+           f'<td>{p.full_name}</td>' \
+           f'<td>{p.result_payoff:.2f}</td></tr>'
+
+
 class Results(Page):
     @staticmethod
     def is_displayed(player: Player):
         return player.round_number == C.NUM_ROUNDS
 
+    @staticmethod
+    def js_vars(player: Player):
+        return dict(participants=''.join([get_participant_info(p.participant)
+                                          for p in player.group.get_players()])
+                    )
 
-page_sequence = [Instructions, InitPage, GamePage, ResultsWaitPage, Results]
-# todo results
+
+page_sequence = [Registration, Instructions, InitPage, GamePage, ResultsWaitPage, Results]
 # todo add custom export
 # todo show order book only for first half

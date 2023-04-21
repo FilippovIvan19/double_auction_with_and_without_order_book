@@ -1,10 +1,27 @@
 {{ block title }}
-    Page title
+    Результаты
 {{ endblock }}
 
 {{ block content }}
-
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col">ID</th>
+          <th scope="col">ФИО</th>
+          <th scope="col">Выигрыш</th>
+        </tr>
+      </thead>
+      <tbody id="results_table">
+      </tbody>
+    </table>
     {{ next_button }}
+
+<script>
+    let results_table = document.getElementById('results_table');
+    let participants = js_vars.participants;
+
+    results_table.innerHTML = participants;
+</script>
 {{ endblock }}
 
 
