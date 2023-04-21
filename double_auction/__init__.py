@@ -12,12 +12,25 @@ Your app description
 class C(BaseConstants):
     NAME_IN_URL = 'double_auction'
     PLAYERS_PER_GROUP = None
-    NUM_ROUNDS = 1
+    NUM_ROUNDS = 4  # todo set to 24 in final version
     ITEMS_PER_PLAYER = 5
     DISCARD_OFFER_VAL = -1
     PERIOD_DURATION = 150
     PERIOD_DURATION1 = 210
-    # todo add borders of prices
+
+    HALF1_BUYERS_PRICE_BORDERS1 = (25, 60)
+    HALF1_SELLERS_PRICE_BORDERS1 = (0, 35)  # equilibrium = 30
+    HALF1_BUYERS_PRICE_BORDERS2 = (30, 60)
+    HALF1_SELLERS_PRICE_BORDERS2 = (10, 40)  # equilibrium = 35
+    HALF2_BUYERS_PRICE_BORDERS1 = (20, 50)
+    HALF2_SELLERS_PRICE_BORDERS1 = (0, 30)  # equilibrium = 25
+    HALF2_BUYERS_PRICE_BORDERS2 = (25, 60)
+    HALF2_SELLERS_PRICE_BORDERS2 = (0, 35)  # equilibrium = 30
+
+    BORDERS = (HALF1_BUYERS_PRICE_BORDERS1, HALF1_SELLERS_PRICE_BORDERS1,
+               HALF1_BUYERS_PRICE_BORDERS2, HALF1_SELLERS_PRICE_BORDERS2,
+               HALF2_BUYERS_PRICE_BORDERS1, HALF2_SELLERS_PRICE_BORDERS1,
+               HALF2_BUYERS_PRICE_BORDERS2, HALF2_SELLERS_PRICE_BORDERS2)
 
 
 class Subsession(BaseSubsession):
@@ -45,6 +58,16 @@ def float_arr_to_str(arr: list[float]):
     return ', '.join([f'{el:.2f}' for el in arr])
 
 
+def get_break_even_points(is_buyer, round_number):
+    borders = C.BORDERS
+    if is_buyer:
+        borders = borders[0::2]
+    else:
+        borders = borders[1::2]
+    quarter = (round_number - 1) // (C.NUM_ROUNDS // 4)
+    return [random.uniform(*borders[quarter]) for _ in range(C.ITEMS_PER_PLAYER)]
+
+
 # PAGES
 class InitPage(WaitPage):
     @staticmethod
@@ -60,7 +83,7 @@ class InitPage(WaitPage):
             p.num_items = 0 if p.is_buyer else C.ITEMS_PER_PLAYER
             p.current_offer = C.DISCARD_OFFER_VAL
             p.round_payoff = 0
-            break_even_points = [random.uniform(1, 100) for _ in range(C.ITEMS_PER_PLAYER)]  #todo borders
+            break_even_points = get_break_even_points(p.is_buyer, group.round_number)
             break_even_points.sort(reverse=p.is_buyer)
             p.break_even_points = float_arr_to_str(break_even_points)
 
@@ -163,12 +186,21 @@ class GamePage(Page):
         }
 
 
+# todo
 class ResultsWaitPage(WaitPage):
-    pass
+    @staticmethod
+    def is_displayed(player: Player):
+        return player.round_number == C.NUM_ROUNDS
 
 
+# todo
 class Results(Page):
-    pass
+    @staticmethod
+    def is_displayed(player: Player):
+        return player.round_number == C.NUM_ROUNDS
 
 
 page_sequence = [InitPage, GamePage, ResultsWaitPage, Results]
+# todo results, instructions
+# todo add custom export
+# todo show order book only for first half
