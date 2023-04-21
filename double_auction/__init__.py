@@ -187,6 +187,19 @@ class GamePage(Page):
 
 
 # todo
+class Registration(Page):
+    @staticmethod
+    def is_displayed(player: Player):
+        return player.round_number == 1
+
+
+class Instructions(Page):
+    @staticmethod
+    def is_displayed(player: Player):
+        return player.round_number == 1
+
+
+# todo compute results
 class ResultsWaitPage(WaitPage):
     @staticmethod
     def is_displayed(player: Player):
@@ -200,7 +213,7 @@ class Results(Page):
         return player.round_number == C.NUM_ROUNDS
 
 
-page_sequence = [InitPage, GamePage, ResultsWaitPage, Results]
-# todo results, instructions
+page_sequence = [Instructions, InitPage, GamePage, ResultsWaitPage, Results]
+# todo results
 # todo add custom export
 # todo show order book only for first half
