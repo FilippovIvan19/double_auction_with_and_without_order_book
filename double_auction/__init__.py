@@ -12,7 +12,7 @@ Your app description
 class C(BaseConstants):
     NAME_IN_URL = 'double_auction'
     PLAYERS_PER_GROUP = None
-    NUM_ROUNDS = 4  # todo set to 24 in final version
+    NUM_ROUNDS = 24
     ITEMS_PER_PLAYER = 5
     DISCARD_OFFER_VAL = -1
     PERIOD_DURATION = 150
@@ -44,11 +44,22 @@ class Group(BaseGroup):
 
 class Player(BasePlayer):
     break_even_points = models.StringField()
+    break_even_points_const = models.StringField()
     num_items = models.IntegerField()
     round_payoff = models.FloatField()
     is_buyer = models.BooleanField()
     current_offer = models.FloatField()
     full_name = models.StringField()
+
+
+class Transaction(ExtraModel):
+    round_number = models.IntegerField()
+    seconds = models.IntegerField()
+    price = models.FloatField()
+    buyer = models.IntegerField()
+    seller = models.IntegerField()
+    buyer_price = models.FloatField()
+    seller_price = models.FloatField()
 
 
 def str_to_float_arr(s: str):
@@ -92,13 +103,26 @@ class InitPage(WaitPage):
             break_even_points = get_break_even_points(p.is_buyer, group.round_number)
             break_even_points.sort(reverse=p.is_buyer)
             p.break_even_points = float_arr_to_str(break_even_points)
+            p.break_even_points_const = p.break_even_points
 
 
 def find_match(bids: list[float], asks: list[float],
-               buyers: list[int], sellers: list[int]):
+               buyers: list[int], sellers: list[int],
+               round_number, seconds):
     if len(bids) > 0 and len(asks) > 0 and bids[-1] >= asks[0]:
-        price = (bids.pop(-1) + asks.pop(0)) / 2.
+        buyer_price = bids.pop(-1)
+        seller_price = asks.pop(0)
+        price = (buyer_price + seller_price) / 2.
         buyer, seller = buyers.pop(-1), sellers.pop(0)
+        Transaction.create(
+            round_number=round_number,
+            seconds=int(seconds),
+            price=price,
+            buyer=buyer,
+            seller=seller,
+            buyer_price=buyer_price,
+            seller_price=seller_price
+        )
         return price, buyer, seller
     else:
         return None
@@ -163,7 +187,9 @@ class GamePage(Page):
 
         if offer != C.DISCARD_OFFER_VAL:
             match = find_match(GamePage.bids, GamePage.asks,
-                               GamePage.buyers, GamePage.sellers)
+                               GamePage.buyers, GamePage.sellers,
+                               player.round_number,
+                               time.time() - player.group.start_timestamp)
             if match:
                 price, buyer_id, seller_id = match
                 GamePage.last_deal = price
@@ -220,8 +246,6 @@ class ResultsWaitPage(WaitPage):
     @staticmethod
     def after_all_players_arrive(group: Group):
         for p in group.get_players():
-            # a: Participant = p.participant
-            # a.id_in_session
             p.participant.result_payoff = sum(pr.round_payoff for pr in p.in_all_rounds())
 
 
@@ -243,5 +267,38 @@ class Results(Page):
                     )
 
 
+def get_tour_and_round(round_number):
+    tour_n = (round_number - 1) // (C.NUM_ROUNDS // 2) + 1
+    round_n = (round_number - 1) % (C.NUM_ROUNDS // 2) + 1
+    return tour_n, round_n
+
+
+def custom_export(players):
+    yield ['CommonInfo']
+    yield ['participant.id', 'participant.label', 'participant.payoff']
+    participants = [p.participant for p in players if p.round_number == 1]
+    for p in participants:
+        yield [p.id_in_session, p.full_name, f'{p.result_payoff:.2f}']
+
+    yield ['Transactions']
+    yield ['tour_number', 'round_number', 'seconds', 'price',
+           'buyer', 'seller', 'buyer_price', 'seller_price']
+    transactions = Transaction.filter()
+    for t in transactions:
+        yield [*get_tour_and_round(t.round_number), t.seconds, t.price,
+               t.buyer, t.seller, t.buyer_price, t.seller_price]
+
+    yield ['Data']
+    yield ['tour_number', 'round_number', 'participant.id',
+           'player.payoff', 'player.is_buyer',
+           *['player.break_even_point' + str(i+1) for i in range(C.ITEMS_PER_PLAYER)],
+           'player.num_items']
+    for pl in players:
+        par = pl.participant
+        yield [*get_tour_and_round(pl.round_number), par.id_in_session,
+               f'{pl.round_payoff:.2f}', pl.is_buyer,
+               *str_to_float_arr(pl.break_even_points_const),
+               pl.num_items]
+
+
 page_sequence = [Registration, Instructions, InitPage, GamePage, ResultsWaitPage, Results]
-# todo add custom export
